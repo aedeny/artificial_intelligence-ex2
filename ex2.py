@@ -22,6 +22,7 @@ def _load_data(file_name):
 class Model:
     def __init__(self, file_name):
         self.train_data, self.attributes = _load_data(file_name)
+        self.target_att = self.attributes[-1]
 
     def get_data(self, attributes_to_values_query):
         """
@@ -38,15 +39,20 @@ class Model:
         return result
 
     @staticmethod
-    def _entropy(values):
+    def _get_values_to_occurrences(examples, attribute):
+        values_to_occurrences = defaultdict(lambda: 0)
+        for e in examples:
+            values_to_occurrences[e[attribute]] += 1
+        return values_to_occurrences
+
+    def _entropy(self, examples, target_att):
+        values_to_occurrences = self._get_values_to_occurrences(examples, target_att)
         total = 0
-        for v in values:
-            p = v / sum(values)
+        n = len(examples)
+        for v in values_to_occurrences.items():
+            p = v[1] / n
             total -= p * math.log2(p)
         return total
-
-    def gain(self, target, attributes):
-        return self._entropy(target) - self._entropy_tx(target, attributes)
 
     def _mode(self, examples):
         """
@@ -55,20 +61,16 @@ class Model:
         :param examples: Examples
         :return: The most common class among the examples.
         """
-        values_to_occurrences = defaultdict(lambda: 0)
-        for e in examples:
-            values_to_occurrences[e[-1]] += 1
+        values_to_occurrences = self._get_values_to_occurrences(examples, self.target_att)
         return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
 
-    def id3(self, examples, attributes, default):
+    def _dtl(self, examples, attributes, default):
         target_att = attributes[-1]
         if not examples:
             return default
 
         # If all examples have the same class
-        values_to_occurrences = defaultdict(lambda: 0)
-        for e in examples:
-            values_to_occurrences[e[target_att]] += 1
+        values_to_occurrences = self._get_values_to_occurrences(examples, self.target_att)
         if len(values_to_occurrences) == 1:
             return Node(next(iter(values_to_occurrences)), examples[target_att])
 
@@ -80,14 +82,31 @@ class Model:
         best_att_values = {e[best_att] for e in examples}
         for v in best_att_values:
             examples_v = {e for e in examples if e[best_att] == v}
-            sub_tree = self.id3(examples_v, list(set(attributes) - {best_att}), self._mode(examples))
+            sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}), self._mode(examples))
             tree.children.append(Node(sub_tree, v))
         return tree
 
     def _choose_attribute(self, attributes, examples):
-        pass
+        att_to_ig = {}
+        for attribute in attributes:
+            att_to_ig[attribute] = self._information_gain(examples, attribute)
+        return max(att_to_ig.items(), key=operator.itemgetter(1))[0]
+
+    def _information_gain(self, examples, attribute):
+        entropy = self._entropy(examples, self.target_att)
+        values_to_occurrences = self._get_values_to_occurrences(examples, attribute)
+        k = len(examples)
+        s = 0
+        for value, occurrences in values_to_occurrences.items():
+            s += occurrences / k * self._entropy(self.get_data({attribute: value}), self.target_att)
+        return entropy - s
+
+    def dtl_top_level(self):
+        attributes = self.train_data
+        default = Node(self.target_att, self._mode(self.train_data))
+        return self._dtl(self.train_data, attributes, default)
 
 
 if __name__ == '__main__':
     model = Model('data/train.txt')
-    model.id3(model.train_data, model.attributes[-1], model.attributes[:-1])
+    model.dtl_top_level()
