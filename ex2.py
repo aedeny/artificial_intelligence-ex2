@@ -10,6 +10,9 @@ class Node:
         self.value = value
         self.children = []
 
+    def __repr__(self):
+        return '{}->{}'.format(self.attribute, self.value)
+
 
 def _load_data(file_name):
     with open(file_name, 'r') as train_file:
@@ -65,23 +68,26 @@ class Model:
         return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
 
     def _dtl(self, examples, attributes, default):
-        target_att = attributes[-1]
         if not examples:
             return default
 
         # If all examples have the same class
         values_to_occurrences = self._get_values_to_occurrences(examples, self.target_att)
         if len(values_to_occurrences) == 1:
-            return Node(next(iter(values_to_occurrences)), examples[target_att])
+            return Node(next(iter(values_to_occurrences)), examples[0][self.target_att])
 
         if not attributes:
-            return Node(target_att, self._mode(examples))
+            return Node(self.target_att, self._mode(examples))
 
         best_att = self._choose_attribute(attributes, examples)
         tree = Node(best_att)
         best_att_values = {e[best_att] for e in examples}
+
         for v in best_att_values:
-            examples_v = {e for e in examples if e[best_att] == v}
+            examples_v = []
+            for ei in examples:
+                if ei[best_att] == v:
+                    examples_v.append(ei)
             sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}), self._mode(examples))
             tree.children.append(Node(sub_tree, v))
         return tree
@@ -102,11 +108,12 @@ class Model:
         return entropy - s
 
     def dtl_top_level(self):
-        attributes = self.train_data
+        attributes = self.attributes[:-1]
         default = Node(self.target_att, self._mode(self.train_data))
         return self._dtl(self.train_data, attributes, default)
 
 
 if __name__ == '__main__':
     model = Model('data/train.txt')
-    model.dtl_top_level()
+    decision_tree = model.dtl_top_level()
+    pass
