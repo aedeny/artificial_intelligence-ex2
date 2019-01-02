@@ -1,6 +1,7 @@
 import csv
-
-import numpy as np
+import math
+import operator
+from collections import defaultdict
 
 
 class Node:
@@ -36,38 +37,55 @@ class Model:
 
         return result
 
-    def _entropy(self, values):
+    @staticmethod
+    def _entropy(values):
         total = 0
         for v in values:
             p = v / sum(values)
-            total -= p * np.log2(p)
+            total -= p * math.log2(p)
         return total
 
-    def _entropy_tx(self, target_att, attribute):
-        value_to_occurences = {}
-        s_pos = self.get_data({target_att: True})
-        s_neg = self.get_data({target_att: False})
-
-        pass
-
     def gain(self, target, attributes):
-
         return self._entropy(target) - self._entropy_tx(target, attributes)
 
-    def id3(self, examples, target_att, attributes):
-        root = Node()
-        positive_count = len([x for x in examples if x[target_att] == 'yes'])
-        size = len(examples)
-        if positive_count == len(examples):
-            return Node(target_att, True)
-        elif positive_count == 0:
-            return Node(target_att, False)
-        elif not attributes:
-            pass
+    def _mode(self, examples):
+        """
+        Returns the most common class among the examples.
+        :type examples: list
+        :param examples: Examples
+        :return: The most common class among the examples.
+        """
+        values_to_occurrences = defaultdict(lambda: 0)
+        for e in examples:
+            values_to_occurrences[e[-1]] += 1
+        return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
 
-        attribute_to_gain = {}
-        for attribute in attributes:
-            attribute_to_gain[attribute] = self.gain(target_att, attribute)
+    def id3(self, examples, attributes, default):
+        target_att = attributes[-1]
+        if not examples:
+            return default
+
+        # If all examples have the same class
+        values_to_occurrences = defaultdict(lambda: 0)
+        for e in examples:
+            values_to_occurrences[e[target_att]] += 1
+        if len(values_to_occurrences) == 1:
+            return Node(next(iter(values_to_occurrences)), examples[target_att])
+
+        if not attributes:
+            return Node(target_att, self._mode(examples))
+
+        best_att = self._choose_attribute(attributes, examples)
+        tree = Node(best_att)
+        best_att_values = {e[best_att] for e in examples}
+        for v in best_att_values:
+            examples_v = {e for e in examples if e[best_att] == v}
+            sub_tree = self.id3(examples_v, list(set(attributes) - {best_att}), self._mode(examples))
+            tree.children.append(Node(sub_tree, v))
+        return tree
+
+    def _choose_attribute(self, attributes, examples):
+        pass
 
 
 if __name__ == '__main__':
