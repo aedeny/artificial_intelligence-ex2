@@ -4,14 +4,6 @@ import operator
 from collections import defaultdict
 
 
-class Leaf:
-    def __init__(self, value):
-        self.value = value
-
-    def to_string(self, depth):
-        return '\t' * depth + ':{}'.format(self.value)
-
-
 class Tree:
     def __init__(self, attribute, children=None):
         if children is None:
@@ -34,15 +26,19 @@ class Tree:
                 s += '\n{}'.format(item[1].to_string(depth + 1))
         return s
 
-    def reduce(self):
+    def trim(self):
         if self.children == {}:
             return self.attribute
-        v = next(iter(self.children.values()))
+        v = next(iter(self.children.values())).attribute
+        value: Tree
         for value in self.children.values():
-            if value.reduce() != v:
-                return
+            temp = value.trim()
+            if temp != v:
+                return self
         self.attribute = v
         self.children = {}
+
+        return self
 
 
 def _load_data(file_name):
@@ -122,20 +118,8 @@ class Model:
             examples_v = [e for e in examples if e[best_att] == v]
             sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}), Tree(self._mode(examples)))
             tree.children[v] = sub_tree
-        self.trim_tree(tree)
 
-        return tree
-
-    def trim_tree(self, tree):
-        if tree.children == {}:
-            return tree.attribute
-        v = next(iter(tree.children.values())).attribute
-        for value in tree.children.values():
-            temp = self.trim_tree(value)
-            if temp != v:
-                return
-        tree.attribute = v
-        tree.children = {}
+        return tree.trim()
 
     def _choose_attribute(self, attributes, examples):
         att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
