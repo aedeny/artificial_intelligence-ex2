@@ -4,14 +4,45 @@ import operator
 from collections import defaultdict
 
 
-class Node:
-    def __init__(self, attribute=None, value=None):
-        self.attribute = attribute
+class Leaf:
+    def __init__(self, value):
         self.value = value
-        self.children = []
+
+    def to_string(self, depth):
+        return '\t' * depth + ':{}'.format(self.value)
+
+
+class Tree:
+    def __init__(self, attribute, children=None):
+        if children is None:
+            children = {}
+        self.attribute = attribute
+        self.children = children
 
     def __repr__(self):
-        return '{}->{}'.format(self.attribute, self.value)
+        return '{}={}'.format(self.attribute, self.children.keys())
+
+    def to_string(self, depth):
+        tabs = '\t' * depth + '|' * int(depth != 0)
+        s = ''
+        for item in self.children.items():
+            s += '{}{}={}'.format(tabs, self.attribute, item[0])
+
+            if item[1].children == {}:
+                s += ':{}\n'.format(item[1].attribute)
+            else:
+                s += '\n{}'.format(item[1].to_string(depth + 1))
+        return s
+
+    def reduce(self):
+        if self.children == {}:
+            return self.attribute
+        v = next(iter(self.children.values()))
+        for value in self.children.values():
+            if value.reduce() != v:
+                return
+        self.attribute = v
+        self.children = {}
 
 
 def _load_data(file_name):
@@ -68,34 +99,46 @@ class Model:
         return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
 
     def _dtl(self, examples, attributes, default):
+        """
+
+        :type default: Tree
+        """
         if not examples:
             return default
 
         # If all examples have the same class
         values_to_occurrences = self._get_values_to_occurrences(examples, self.target_att)
         if len(values_to_occurrences) == 1:
-            return Node(next(iter(values_to_occurrences)), examples[0][self.target_att])
+            return Tree(next(iter(values_to_occurrences)))
 
         if not attributes:
-            return Node(self.target_att, self._mode(examples))
+            return Tree(self._mode(examples))
 
         best_att = self._choose_attribute(attributes, examples)
-        tree = Node(best_att)
+        tree = Tree(best_att)
         best_att_values = {e[best_att] for e in examples}
 
-        for v in best_att_values:
-            examples_v = []
-            for ei in examples:
-                if ei[best_att] == v:
-                    examples_v.append(ei)
-            sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}), self._mode(examples))
-            tree.children.append(Node(sub_tree, v))
+        for v in sorted(list(best_att_values)):
+            examples_v = [e for e in examples if e[best_att] == v]
+            sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}), Tree(self._mode(examples)))
+            tree.children[v] = sub_tree
+        self.trim_tree(tree)
+
         return tree
 
+    def trim_tree(self, tree):
+        if tree.children == {}:
+            return tree.attribute
+        v = next(iter(tree.children.values())).attribute
+        for value in tree.children.values():
+            temp = self.trim_tree(value)
+            if temp != v:
+                return
+        tree.attribute = v
+        tree.children = {}
+
     def _choose_attribute(self, attributes, examples):
-        att_to_ig = {}
-        for attribute in attributes:
-            att_to_ig[attribute] = self._information_gain(examples, attribute)
+        att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
         return max(att_to_ig.items(), key=operator.itemgetter(1))[0]
 
     def _information_gain(self, examples, attribute):
@@ -109,11 +152,13 @@ class Model:
 
     def dtl_top_level(self):
         attributes = self.attributes[:-1]
-        default = Node(self.target_att, self._mode(self.train_data))
+        default = Tree(self._mode(self.train_data))
         return self._dtl(self.train_data, attributes, default)
 
 
 if __name__ == '__main__':
     model = Model('data/train.txt')
     decision_tree = model.dtl_top_level()
+    print(decision_tree.to_string(0))
+    # model._reduce_tree(decision_tree)
     pass
