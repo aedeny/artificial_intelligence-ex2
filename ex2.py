@@ -42,33 +42,23 @@ def most_common_class(examples, target_attribute):
     return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
 
 
-def levenshtein_distance(s1, s2):
-    """ From Wikipedia article; Iterative with two matrix rows. """
-    s1_len = len(s1)
-    s2_len = len(s2)
+def get_data(attributes_to_values_query, train_data):
+    """
+    Returns a list of entries satisfying query.
+    :param train_data:
+    :type attributes_to_values_query: dict
+    """
+    result = []
+    for entry in train_data:
+        valid = True
+        for item in attributes_to_values_query.items():
+            if entry[item[0]] != item[1]:
+                valid = False
+                break
+        if valid:
+            result.append(entry)
 
-    if s1 == s2:
-        return 0
-    elif s1_len == 0:
-        return s2_len
-    elif s2_len == 0:
-        return s1_len
-
-    v0 = [0] * (s2_len + 1)
-    v1 = [0] * (s2_len + 1)
-
-    for i in range(len(v0)):
-        v0[i] = i
-
-    for i in range(s1_len):
-        v1[0] = i + 1
-        for j in range(s2_len):
-            cost = 0 if s1[i] == s2[j] else 1
-            v1[j + 1] = min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost)
-        for j in range(len(v0)):
-            v0[j] = v1[j]
-
-    return v1[s2_len]
+    return result
 
 
 class Tree:
@@ -131,20 +121,6 @@ class DecisionTree:
     def predict(self, example: dict):
         return self._tree.predict(example)
 
-    def _get_data(self, attributes_to_values_query):
-        """
-        Returns a list of entries satisfying query.
-        :type attributes_to_values_query: dict
-        """
-        result = []
-        for entry in self._train_data:
-            for item in attributes_to_values_query.items():
-                if entry[item[0]] != item[1]:
-                    break
-                result.append(entry)
-
-        return result
-
     def _dtl(self, examples: list, attributes: list, default: Tree) -> Tree:
         """
         Creates a decision tree recursively.
@@ -186,7 +162,7 @@ class DecisionTree:
         k = len(examples)
         s = 0
         for value, occurrences in values_to_occurrences.items():
-            s += occurrences / k * entropy(self._get_data({attribute: value}), self._target_att)
+            s += occurrences / k * entropy(get_data({attribute: value}, self._train_data), self._target_att)
         return ent - s
 
     def _dtl_top_level(self):
@@ -213,19 +189,41 @@ class NaiveBayes:
     def __init__(self, train_data):
         self.train_data, self.arguments = train_data
 
+    def predict(self, example: dict):
+        target_argument = self.arguments[-1]
+        target_label_occurrences = get_values_to_occurrences(self.train_data, target_argument)
+        probabilities = {t: {} for t in target_label_occurrences}
+        n = len(self.train_data)
+
+        # Trains
+        for target_label in target_label_occurrences.items():
+            for item in example.items():
+                query = {target_argument: target_label[0], item[0]: item[1]}
+                data_count = len(get_data(query, self.train_data))
+                probabilities[target_label[0]][item[1]] = data_count / target_label[1]
+
+        # Predicts
+        result = {t: 1 for t in target_label_occurrences}
+        for item in probabilities.items():
+            for value in item[1].values():
+                result[item[0]] *= value
+            result[item[0]] *= target_label_occurrences[item[0]] / n
+
+        return max(result.items(), key=operator.itemgetter(1))[0]
+
 
 if __name__ == '__main__':
     my_train_data = load_data('data/train.txt')
     my_test_data = load_data('data/test.txt')
+    my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
 
-    # print(levenshtein_distance('abc', 'ac'))
     my_decision_tree = DecisionTree(my_train_data)
     print(my_decision_tree)
 
-    my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
     print('Prediction for example {} is {}.'.format(my_example, my_decision_tree.predict(my_example)))
 
     my_knn = KNN(my_train_data)
     print('KNN Prediction for example {} is {}.'.format(my_example, my_knn.predict(my_example)))
 
-    pass
+    my_nb = NaiveBayes(my_train_data)
+    print('Naive Bayes Prediction for example {} is {}.'.format(my_example, my_nb.predict(my_example)))
