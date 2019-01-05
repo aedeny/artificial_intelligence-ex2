@@ -6,11 +6,11 @@ from typing import Tuple
 
 
 def load_data(file_name):
-    with open(file_name, 'r') as train_file:
-        attributes = str(next(train_file)).strip().split('\t')
-        reader = csv.DictReader(train_file, attributes, delimiter='\t')
-        train_data = [row for row in reader]
-    return train_data, attributes
+    with open(file_name, 'r') as f:
+        attributes = str(next(f)).strip().split('\t')
+        reader = csv.DictReader(f, attributes, delimiter='\t')
+        data = [row for row in reader]
+    return data, attributes
 
 
 def entropy(examples, target_att):
@@ -28,6 +28,47 @@ def get_values_to_occurrences(examples, attribute):
     for e in examples:
         values_to_occurrences[e[attribute]] += 1
     return values_to_occurrences
+
+
+def most_common_class(examples, target_attribute):
+    """
+    Returns the most common class among the given examples.
+    :type examples: list
+    :param examples: Examples
+    :param target_attribute:
+    :return: The most common class among the examples.
+    """
+    values_to_occurrences = get_values_to_occurrences(examples, target_attribute)
+    return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
+
+
+def levenshtein_distance(s1, s2):
+    """ From Wikipedia article; Iterative with two matrix rows. """
+    s1_len = len(s1)
+    s2_len = len(s2)
+
+    if s1 == s2:
+        return 0
+    elif s1_len == 0:
+        return s2_len
+    elif s2_len == 0:
+        return s1_len
+
+    v0 = [0] * (s2_len + 1)
+    v1 = [0] * (s2_len + 1)
+
+    for i in range(len(v0)):
+        v0[i] = i
+
+    for i in range(s1_len):
+        v1[0] = i + 1
+        for j in range(s2_len):
+            cost = 0 if s1[i] == s2[j] else 1
+            v1[j + 1] = min(v1[j] + 1, v0[j + 1] + 1, v0[j] + cost)
+        for j in range(len(v0)):
+            v0[j] = v1[j]
+
+    return v1[s2_len]
 
 
 class Tree:
@@ -79,8 +120,8 @@ class Tree:
 class DecisionTree:
     _tree: Tree
 
-    def __init__(self, file_name):
-        self._train_data, self.attributes = load_data(file_name)
+    def __init__(self, train_data):
+        self._train_data, self.attributes = train_data
         self._target_att = self.attributes[-1]
         self._tree = self._dtl_top_level()
 
@@ -104,16 +145,6 @@ class DecisionTree:
 
         return result
 
-    def _most_common_class(self, examples):
-        """
-        Returns the most common class among the given examples.
-        :type examples: list
-        :param examples: Examples
-        :return: The most common class among the examples.
-        """
-        values_to_occurrences = get_values_to_occurrences(examples, self._target_att)
-        return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
-
     def _dtl(self, examples: list, attributes: list, default: Tree) -> Tree:
         """
         Creates a decision tree recursively.
@@ -131,7 +162,7 @@ class DecisionTree:
             return Tree(next(iter(values_to_occurrences)))
 
         if not attributes:
-            return Tree(self._most_common_class(examples))
+            return Tree(most_common_class(examples, self._target_att))
 
         best_att = self._choose_attribute(attributes, examples)
         tree = Tree(best_att)
@@ -140,7 +171,7 @@ class DecisionTree:
         for v in sorted(list(best_att_values)):
             examples_v = [e for e in examples if e[best_att] == v]
             sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}),
-                                 Tree(self._most_common_class(examples)))
+                                 Tree(most_common_class(examples, self._target_att)))
             tree.children[v] = sub_tree
 
         return tree.trim()
@@ -160,14 +191,41 @@ class DecisionTree:
 
     def _dtl_top_level(self):
         attributes = self.attributes[:-1]
-        default = Tree(self._most_common_class(self._train_data))
+        default = Tree(most_common_class(self._train_data, self._target_att))
         return self._dtl(self._train_data, attributes, default)
 
 
+class KNN:
+    def __init__(self, train_data, k=5):
+        self._train_data, self.attributes = train_data
+        self._k = k
+
+    def _distance(self, e1, e2) -> int:
+        return sum([1 for attribute in self.attributes[:-1] if e1[attribute] != e2[attribute]])
+
+    def predict(self, example) -> str:
+        distances = sorted([(self._distance(e, example), e) for e in self._train_data], key=lambda x: x[0])[:self._k]
+        knn = [distance[1] for distance in distances]
+        return most_common_class(knn, self.attributes[-1])
+
+
+class NaiveBayes:
+    def __init__(self, train_data):
+        self.train_data, self.arguments = train_data
+
+
 if __name__ == '__main__':
-    decision_tree = DecisionTree('data/train.txt')
-    print(decision_tree)
+    my_train_data = load_data('data/train.txt')
+    my_test_data = load_data('data/test.txt')
+
+    # print(levenshtein_distance('abc', 'ac'))
+    my_decision_tree = DecisionTree(my_train_data)
+    print(my_decision_tree)
 
     my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
-    print('Prediction for example {} is {}.'.format(my_example, decision_tree.predict(my_example)))
+    print('Prediction for example {} is {}.'.format(my_example, my_decision_tree.predict(my_example)))
+
+    my_knn = KNN(my_train_data)
+    print('KNN Prediction for example {} is {}.'.format(my_example, my_knn.predict(my_example)))
+
     pass
