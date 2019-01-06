@@ -111,6 +111,7 @@ class DecisionTree:
     _tree: Tree
 
     def __init__(self, train_data):
+        self.name = 'DT'
         self._train_data, self.attributes = train_data
         self._target_att = self.attributes[-1]
         self._tree = self._dtl_top_level()
@@ -173,6 +174,7 @@ class DecisionTree:
 
 class KNN:
     def __init__(self, train_data, k=5):
+        self.name = 'KNN'
         self._train_data, self.attributes = train_data
         self._k = k
 
@@ -187,6 +189,7 @@ class KNN:
 
 class NaiveBayes:
     def __init__(self, train_data):
+        self.name = 'naiveBayes'
         self.train_data, self.arguments = train_data
 
     def predict(self, example: dict):
@@ -212,18 +215,26 @@ class NaiveBayes:
         return max(result.items(), key=operator.itemgetter(1))[0]
 
 
+def test(test_data, model):
+    results = [model.predict(e) for e in test_data[0]]
+    accuracy = sum([1 for t, prediction in zip(test_data[0], results) if t[test_data[1][-1]] == prediction]) / len(
+        results)
+    return results, accuracy
+
+
 if __name__ == '__main__':
     my_train_data = load_data('data/train.txt')
     my_test_data = load_data('data/test.txt')
     my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
 
-    my_decision_tree = DecisionTree(my_train_data)
-    print(my_decision_tree)
+    models = [DecisionTree(my_train_data), KNN(my_train_data), NaiveBayes(my_train_data)]
 
-    print('Prediction for example {} is {}.'.format(my_example, my_decision_tree.predict(my_example)))
+    model_to_results = {}
+    for model in models:
+        predictions, accuracy = test(my_test_data, model)
+        model_to_results[model.name] = {'predictions': predictions, 'accuracy': accuracy}
 
-    my_knn = KNN(my_train_data)
-    print('KNN Prediction for example {} is {}.'.format(my_example, my_knn.predict(my_example)))
+    with open('data/my_output.txt', 'w') as f:
+        for i, models in enumerate(zip(x for x in model_to_results.items())):
+            pass
 
-    my_nb = NaiveBayes(my_train_data)
-    print('Naive Bayes Prediction for example {} is {}.'.format(my_example, my_nb.predict(my_example)))
