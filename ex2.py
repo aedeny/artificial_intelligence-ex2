@@ -199,27 +199,37 @@ class NaiveBayes:
         n = len(self.train_data)
 
         # Trains
-        for target_label in target_label_occurrences.items():
-            for item in example.items():
-                query = {target_argument: target_label[0], item[0]: item[1]}
+        for label, occurrences in target_label_occurrences.items():
+            for attribute, value in example.items():
+                query = {target_argument: label, attribute: value}
                 data_count = len(get_data(query, self.train_data))
-                probabilities[target_label[0]][item[1]] = data_count / target_label[1]
+                probabilities[label][value] = data_count / occurrences
 
         # Predicts
         result = {t: 1 for t in target_label_occurrences}
-        for item in probabilities.items():
-            for value in item[1].values():
-                result[item[0]] *= value
-            result[item[0]] *= target_label_occurrences[item[0]] / n
+        for label, label_to_probability in probabilities.items():
+            for value in label_to_probability.values():
+                result[label] *= value
+            result[label] *= target_label_occurrences[label] / n
 
         return max(result.items(), key=operator.itemgetter(1))[0]
 
 
-def test(test_data, model):
-    results = [model.predict(e) for e in test_data[0]]
-    accuracy = sum([1 for t, prediction in zip(test_data[0], results) if t[test_data[1][-1]] == prediction]) / len(
-        results)
-    return results, accuracy
+def test_models(test_data, models):
+    s = 'Num\t{}'.format('\t'.join([m.name for m in models]))
+    model_to_accuracy = defaultdict(lambda: 0)
+    target_attribute = test_data[1][-1]
+    for i, t in enumerate(test_data[0]):
+        s += '\n{}'.format(i + 1)
+        for m in models:
+            prediction = m.predict(t)
+            model_to_accuracy[m.name] += prediction == t[target_attribute]
+            s += '\t{}'.format(prediction)
+    s += '\n'
+    for m in models:
+        model_to_accuracy[m.name] /= len(test_data[0])
+        s += '\t{}'.format(model_to_accuracy[m.name])
+    return s
 
 
 if __name__ == '__main__':
@@ -227,14 +237,20 @@ if __name__ == '__main__':
     my_test_data = load_data('data/test.txt')
     my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
 
-    models = [DecisionTree(my_train_data), KNN(my_train_data), NaiveBayes(my_train_data)]
+    # Models
+    my_dt = DecisionTree(my_train_data)
+    my_knn = KNN(my_train_data)
+    my_nb = NaiveBayes(my_train_data)
 
-    model_to_results = {}
-    for model in models:
-        predictions, accuracy = test(my_test_data, model)
-        model_to_results[model.name] = {'predictions': predictions, 'accuracy': accuracy}
+    my_models = [my_dt, my_knn, my_nb]
+    output_test = test_models(my_test_data, my_models)
+    output_tree = str(my_dt)
 
-    with open('data/my_output.txt', 'w') as f:
-        for i, models in enumerate(zip(x for x in model_to_results.items())):
-            pass
+    print(output_tree)
+    print(output_test)
 
+    with open('data/my_output.txt', 'w') as output:
+        output.write(output_test)
+
+    with open('data/my_output_tree.txt', 'w') as output:
+        output.write(output_tree)
