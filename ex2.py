@@ -17,8 +17,8 @@ def entropy(examples, target_att):
     values_to_occurrences = get_values_to_occurrences(examples, target_att)
     total = 0
     n = len(examples)
-    for v in values_to_occurrences.items():
-        p = v[1] / n
+    for value in values_to_occurrences.values():
+        p = value / n
         total -= p * math.log2(p)
     return total
 
@@ -75,7 +75,7 @@ class Tree:
     def __str__(self):
         return self._to_string(0)
 
-    def _to_string(self, depth):
+    def _to_string(self, depth: int) -> str:
         tabs = '\t' * depth + '|' * int(depth != 0)
         s = ''
         item: Tuple[str, Tree]
@@ -153,7 +153,7 @@ class DecisionTree:
 
         return tree.trim()
 
-    def _choose_attribute(self, attributes: list, examples: list):
+    def _choose_attribute(self, attributes, examples):
         att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
         return max(att_to_ig.items(), key=operator.itemgetter(1))[0]
 
