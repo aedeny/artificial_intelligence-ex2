@@ -1,6 +1,5 @@
 import csv
 import math
-import operator
 from collections import defaultdict
 from typing import Tuple
 
@@ -39,7 +38,7 @@ def most_common_class(examples, target_attribute):
     :return: The most common class among the examples.
     """
     values_to_occurrences = get_values_to_occurrences(examples, target_attribute)
-    return max(values_to_occurrences.items(), key=operator.itemgetter(1))[0]
+    return max(values_to_occurrences.items(), key=lambda x: x[1])[0]
 
 
 def get_data(attributes_to_values_query, train_data):
@@ -155,7 +154,7 @@ class DecisionTree:
 
     def _choose_attribute(self, attributes, examples):
         att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
-        return max(att_to_ig.items(), key=operator.itemgetter(1))[0]
+        return max(att_to_ig.items(), key=lambda x: x[1])[0]
 
     def _information_gain(self, examples, attribute):
         ent = entropy(examples, self._target_att)
@@ -197,13 +196,15 @@ class NaiveBayes:
         target_label_occurrences = get_values_to_occurrences(self.train_data, target_argument)
         probabilities = {t: {} for t in target_label_occurrences}
         n = len(self.train_data)
+        attribute_to_num_of_values = {att: len(get_values_to_occurrences(self.train_data, att)) for att in
+                                      self.arguments}
 
         # Trains
         for label, occurrences in target_label_occurrences.items():
             for attribute, value in example.items():
                 query = {target_argument: label, attribute: value}
-                data_count = len(get_data(query, self.train_data))
-                probabilities[label][value] = data_count / occurrences
+                data_count = len(get_data(query, self.train_data)) + 1
+                probabilities[label][value] = data_count / (occurrences + attribute_to_num_of_values[attribute])
 
         # Predicts
         result = {t: 1 for t in target_label_occurrences}
@@ -212,7 +213,7 @@ class NaiveBayes:
                 result[label] *= value
             result[label] *= target_label_occurrences[label] / n
 
-        return max(result.items(), key=operator.itemgetter(1))[0]
+        return max(result.items(), key=lambda x: x[1])[0]
 
 
 def test_models(test_data, models):
@@ -228,13 +229,13 @@ def test_models(test_data, models):
     s += '\n'
     for m in models:
         model_to_accuracy[m.name] /= len(test_data[0])
-        s += '\t{}'.format(model_to_accuracy[m.name])
+        s += '\t{}'.format(round(model_to_accuracy[m.name], 2))
     return s
 
 
 if __name__ == '__main__':
-    my_train_data = load_data('data/train.txt')
-    my_test_data = load_data('data/test.txt')
+    my_train_data = load_data('train.txt')
+    my_test_data = load_data('test.txt')
     my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
 
     # Models
@@ -249,8 +250,8 @@ if __name__ == '__main__':
     print(output_tree)
     print(output_test)
 
-    with open('data/my_output.txt', 'w') as output:
+    with open('my_output.txt', 'w') as output:
         output.write(output_test)
 
-    with open('data/my_output_tree.txt', 'w') as output:
+    with open('my_output_tree.txt', 'w') as output:
         output.write(output_tree)
