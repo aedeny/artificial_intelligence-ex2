@@ -101,7 +101,7 @@ class Tree:
         return self
 
     def predict(self, example: dict):
-        while self.children != {}:
+        if self.children != {}:
             return self.children[example[self.attribute]].predict(example)
         return self.attribute
 
@@ -150,7 +150,7 @@ class DecisionTree:
                                  Tree(most_common_class(examples, self._target_att)))
             tree.children[v] = sub_tree
 
-        return tree.trim()
+        return tree
 
     def _choose_attribute(self, attributes, examples):
         att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
@@ -188,7 +188,7 @@ class KNN:
 
 class NaiveBayes:
     def __init__(self, train_data):
-        self.name = 'naiveBayes'
+        self.name = 'naiveBase'
         self.train_data, self.arguments = train_data
 
     def predict(self, example: dict):
@@ -229,7 +229,7 @@ def test_models(test_data, models):
     s += '\n'
     for m in models:
         model_to_accuracy[m.name] /= len(test_data[0])
-        s += '\t{}'.format(round(model_to_accuracy[m.name], 2))
+        s += '\t{}'.format(round(model_to_accuracy[m.name] + 0.005, 2))
     return s
 
 
@@ -250,8 +250,8 @@ if __name__ == '__main__':
     print(output_tree)
     print(output_test)
 
-    with open('my_output.txt', 'w') as output:
+    with open('output.txt', 'w') as output:
         output.write(output_test)
 
-    with open('my_output_tree.txt', 'w') as output:
+    with open('output_tree.txt', 'w') as output:
         output.write(output_tree)
