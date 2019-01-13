@@ -1,7 +1,6 @@
 import csv
 import math
 from collections import defaultdict
-from typing import Tuple
 
 
 def load_data(file_name):
@@ -18,7 +17,7 @@ def entropy(examples, target_att):
     n = len(examples)
     for value in values_to_occurrences.values():
         p = value / n
-        total -= p * math.log2(p)
+        total -= p * math.log(p, 2)
     return total
 
 
@@ -74,11 +73,10 @@ class Tree:
     def __str__(self):
         return self._to_string(0)
 
-    def _to_string(self, depth: int) -> str:
+    def _to_string(self, depth):
         tabs = '\t' * depth + '|' * int(depth != 0)
         s = ''
-        item: Tuple[str, Tree]
-        for item in self.children.items():
+        for item in sorted(self.children.items(), key=lambda x: x[0]):
             s += '{}{}={}'.format(tabs, self.attribute, item[0])
             if item[1].children == {}:
                 s += ':{}\n'.format(item[1].attribute)
@@ -100,14 +98,13 @@ class Tree:
 
         return self
 
-    def predict(self, example: dict):
+    def predict(self, example):
         if self.children != {}:
             return self.children[example[self.attribute]].predict(example)
         return self.attribute
 
 
 class DecisionTree:
-    _tree: Tree
 
     def __init__(self, train_data):
         self.name = 'DT'
@@ -118,10 +115,10 @@ class DecisionTree:
     def __str__(self):
         return str(self._tree)
 
-    def predict(self, example: dict):
+    def predict(self, example):
         return self._tree.predict(example)
 
-    def _dtl(self, examples: list, attributes: list, default: Tree) -> Tree:
+    def _dtl(self, examples, attributes, default):
         """
         Creates a decision tree recursively.
         :param examples: A list of dicts, where each dict is in the form {attribute : value}.
@@ -177,10 +174,10 @@ class KNN:
         self._train_data, self.attributes = train_data
         self._k = k
 
-    def _distance(self, e1, e2) -> int:
+    def _distance(self, e1, e2):
         return sum([1 for attribute in self.attributes[:-1] if e1[attribute] != e2[attribute]])
 
-    def predict(self, example) -> str:
+    def predict(self, example):
         distances = sorted([(self._distance(e, example), e) for e in self._train_data], key=lambda x: x[0])[:self._k]
         knn = [distance[1] for distance in distances]
         return most_common_class(knn, self.attributes[-1])
@@ -191,7 +188,7 @@ class NaiveBayes:
         self.name = 'naiveBase'
         self.train_data, self.arguments = train_data
 
-    def predict(self, example: dict):
+    def predict(self, example):
         target_argument = self.arguments[-1]
         target_label_occurrences = get_values_to_occurrences(self.train_data, target_argument)
         probabilities = {t: {} for t in target_label_occurrences}
