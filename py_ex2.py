@@ -191,7 +191,7 @@ class KNN:
 
 class NaiveBayes:
     def __init__(self, train_data):
-        self.name = 'naiveBase'
+        self.name = 'naiveBase'  # Misspelled intentionally for stupid output tests
         self.train_data, self.arguments = train_data
 
     def predict(self, example):
