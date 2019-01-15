@@ -71,7 +71,7 @@ class Tree:
         return '{}={}'.format(self.attribute, self.children.keys())
 
     def __str__(self):
-        return self._to_string(0)
+        return self._to_string(0).strip()
 
     def _to_string(self, depth):
         tabs = '\t' * depth + '|' * int(depth != 0)
@@ -108,6 +108,9 @@ class Tree:
 
 
 class DecisionTree:
+    """
+    This class implements the decision tree learning method.
+    """
 
     def __init__(self, train_data):
         self.name = 'DT'
@@ -120,6 +123,11 @@ class DecisionTree:
         return str(self._tree)
 
     def predict(self, example):
+        """
+
+        :param example:
+        :return:
+        """
         return self._tree.predict(example)
 
     def _dtl(self, examples, attributes, default):
@@ -133,7 +141,7 @@ class DecisionTree:
         if not examples:
             return default
 
-        # If all examples have the same class
+        # If all examples have the same class, returns that class
         values_to_occurrences = get_values_to_occurrences(examples, self._target_att)
         if len(values_to_occurrences) == 1:
             return Tree(next(iter(values_to_occurrences)))
@@ -141,7 +149,7 @@ class DecisionTree:
         if not attributes:
             return Tree(most_common_class(examples, self._target_att))
 
-        best_att = self._choose_attribute(attributes, examples)
+        best_att = self._choose_best_attribute(attributes, examples)
         tree = Tree(best_att)
         best_att_values = self._attribute_to_set_of_values[best_att]
 
@@ -154,7 +162,7 @@ class DecisionTree:
 
         return tree
 
-    def _choose_attribute(self, attributes, examples):
+    def _choose_best_attribute(self, attributes, examples):
         att_to_ig = [(attribute, self._information_gain(examples, attribute)) for attribute in attributes]
         m = max(att_to_ig, key=lambda x: x[1])[0]
         return m
@@ -175,6 +183,10 @@ class DecisionTree:
 
 
 class KNN:
+    """
+    This class implements the K-Nearest Neighbors algorithm.
+    """
+
     def __init__(self, train_data, k=5):
         self.name = 'KNN'
         self._train_data, self.attributes = train_data
@@ -239,9 +251,8 @@ def test_models(test_data, models):
 
 
 if __name__ == '__main__':
-    test_dir = 'tests\\test0\\'
-    my_train_data = load_data(test_dir + 'train.txt')
-    my_test_data = load_data(test_dir + 'test.txt')
+    my_train_data = load_data('train.txt')
+    my_test_data = load_data('test.txt')
 
     # Models
     my_dt = DecisionTree(my_train_data)
@@ -255,8 +266,8 @@ if __name__ == '__main__':
     print(output_tree)
     print(output_test)
 
-    with open(test_dir + 'my_output.txt', 'w') as output:
+    with open('output.txt', 'w') as output:
         output.write(output_test)
 
-    with open(test_dir + 'my_output_tree.txt', 'w') as output:
+    with open('output_tree.txt', 'w') as output:
         output.write(output_tree)
