@@ -197,7 +197,7 @@ class NaiveBayes:
     def predict(self, example):
         target_argument = self.arguments[-1]
         target_label_occurrences = get_values_to_occurrences(self.train_data, target_argument)
-        probabilities = {t: {} for t in target_label_occurrences}
+        probabilities = {t: [] for t in target_label_occurrences}
         n = len(self.train_data)
         attribute_to_num_of_values = {att: len(get_values_to_occurrences(self.train_data, att)) for att in
                                       self.arguments[:-1]}
@@ -209,12 +209,12 @@ class NaiveBayes:
                     continue
                 query = {target_argument: label, attribute: value}
                 data_count = len(get_data(query, self.train_data)) + 1
-                probabilities[label][value] = data_count / (occurrences + attribute_to_num_of_values[attribute])
+                probabilities[label].append(data_count / (occurrences + attribute_to_num_of_values[attribute]))
 
         # Predicts
         result = {t: 1 for t in target_label_occurrences}
         for label, label_to_probability in probabilities.items():
-            for value in label_to_probability.values():
+            for value in label_to_probability:
                 result[label] *= value
             result[label] *= target_label_occurrences[label] / n
 
@@ -239,7 +239,7 @@ def test_models(test_data, models):
 
 
 if __name__ == '__main__':
-    test_dir = 'tests\\test2\\'
+    test_dir = 'tests\\test0\\'
     my_train_data = load_data(test_dir + 'train.txt')
     my_test_data = load_data(test_dir + 'test.txt')
 
