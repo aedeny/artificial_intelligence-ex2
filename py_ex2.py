@@ -36,8 +36,8 @@ def most_common_class(examples, target_attribute):
     :param target_attribute:
     :return: The most common class among the examples.
     """
-    values_to_occurrences = get_values_to_occurrences(examples, target_attribute)
-    return max(values_to_occurrences.items(), key=lambda x: x[1])[0]
+    values_to_occurrences = sorted(get_values_to_occurrences(examples, target_attribute).items(), reverse=True)
+    return max(values_to_occurrences, key=lambda x: x[1])[0]
 
 
 def get_data(attributes_to_values_query, train_data):
@@ -99,7 +99,10 @@ class Tree:
         return self
 
     def predict(self, example):
+
         if self.children != {}:
+            if example[self.attribute] not in self.children:
+                return None
             return self.children[example[self.attribute]].predict(example)
         return self.attribute
 
@@ -110,6 +113,7 @@ class DecisionTree:
         self.name = 'DT'
         self._train_data, self.attributes = train_data
         self._target_att = self.attributes[-1]
+        self._attribute_to_set_of_values = {att: {e[att] for e in self._train_data} for att in self.attributes}
         self._tree = self._dtl_top_level()
 
     def __str__(self):
@@ -139,19 +143,21 @@ class DecisionTree:
 
         best_att = self._choose_attribute(attributes, examples)
         tree = Tree(best_att)
-        best_att_values = {e[best_att] for e in examples}
+        best_att_values = self._attribute_to_set_of_values[best_att]
 
         for v in sorted(list(best_att_values)):
             examples_v = [e for e in examples if e[best_att] == v]
-            sub_tree = self._dtl(examples_v, list(set(attributes) - {best_att}),
-                                 Tree(most_common_class(examples, self._target_att)))
+            sub_attributes = list(attributes)
+            sub_attributes.remove(best_att)
+            sub_tree = self._dtl(examples_v, sub_attributes, Tree(most_common_class(examples, self._target_att)))
             tree.children[v] = sub_tree
 
         return tree
 
     def _choose_attribute(self, attributes, examples):
-        att_to_ig = {attribute: self._information_gain(examples, attribute) for attribute in attributes}
-        return max(att_to_ig.items(), key=lambda x: x[1])[0]
+        att_to_ig = [(attribute, self._information_gain(examples, attribute)) for attribute in attributes]
+        m = max(att_to_ig, key=lambda x: x[1])[0]
+        return m
 
     def _information_gain(self, examples, attribute):
         ent = entropy(examples, self._target_att)
@@ -159,7 +165,7 @@ class DecisionTree:
         k = len(examples)
         s = 0
         for value, occurrences in values_to_occurrences.items():
-            s += occurrences / k * entropy(get_data({attribute: value}, self._train_data), self._target_att)
+            s += (occurrences / k) * entropy(get_data({attribute: value}, examples), self._target_att)
         return ent - s
 
     def _dtl_top_level(self):
@@ -194,11 +200,13 @@ class NaiveBayes:
         probabilities = {t: {} for t in target_label_occurrences}
         n = len(self.train_data)
         attribute_to_num_of_values = {att: len(get_values_to_occurrences(self.train_data, att)) for att in
-                                      self.arguments}
+                                      self.arguments[:-1]}
 
         # Trains
         for label, occurrences in target_label_occurrences.items():
             for attribute, value in example.items():
+                if attribute == self.arguments[-1]:
+                    continue
                 query = {target_argument: label, attribute: value}
                 data_count = len(get_data(query, self.train_data)) + 1
                 probabilities[label][value] = data_count / (occurrences + attribute_to_num_of_values[attribute])
@@ -210,7 +218,7 @@ class NaiveBayes:
                 result[label] *= value
             result[label] *= target_label_occurrences[label] / n
 
-        return max(result.items(), key=lambda x: x[1])[0]
+        return max(sorted(result.items(), reverse=True), key=lambda x: x[1])[0]
 
 
 def test_models(test_data, models):
@@ -231,9 +239,9 @@ def test_models(test_data, models):
 
 
 if __name__ == '__main__':
-    my_train_data = load_data('train.txt')
-    my_test_data = load_data('test.txt')
-    my_example = {'sex': 'female', 'pclass': '3rd', 'age': 'child'}
+    test_dir = 'tests\\test2\\'
+    my_train_data = load_data(test_dir + 'train.txt')
+    my_test_data = load_data(test_dir + 'test.txt')
 
     # Models
     my_dt = DecisionTree(my_train_data)
@@ -247,8 +255,8 @@ if __name__ == '__main__':
     print(output_tree)
     print(output_test)
 
-    with open('output.txt', 'w') as output:
+    with open(test_dir + 'my_output.txt', 'w') as output:
         output.write(output_test)
 
-    with open('output_tree.txt', 'w') as output:
+    with open(test_dir + 'my_output_tree.txt', 'w') as output:
         output.write(output_tree)
