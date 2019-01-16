@@ -67,21 +67,21 @@ class Tree:
         self.attribute = attribute
         self.children = children
 
-    def __repr__(self):
-        return '{}={}'.format(self.attribute, self.children.keys())
-
     def __str__(self):
         return self._to_string(0).strip()
 
     def _to_string(self, depth):
+        # Prints <depth> tabs and a vertical line if <depth> is not 0.
         tabs = '\t' * depth + '|' * int(depth != 0)
+
         s = ''
-        for item in sorted(self.children.items(), key=lambda x: x[0]):
-            s += '{}{}={}'.format(tabs, self.attribute, item[0])
-            if item[1].children == {}:
-                s += ':{}\n'.format(item[1].attribute)
+        for value, sub_tree in sorted(self.children.items(), key=lambda x: x[0]):
+            s += '{}{}={}'.format(tabs, self.attribute, value)
+            if sub_tree.children == {}:
+                s += ':{}\n'.format(sub_tree.attribute)
             else:
-                s += '\n{}'.format(item[1]._to_string(depth + 1))
+                # noinspection PyProtectedMember
+                s += '\n{}'.format(sub_tree._to_string(depth + 1))
 
         return s
 
